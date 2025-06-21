@@ -15,7 +15,7 @@ A simple desktop application for creating GIF animations from videos by URL (You
 1.  Make sure you have Python 3 installed.
 2.  Clone the repository:
  ```
- git clone [https://github.com/ВАШ_НИК/GifStudioPro.git](https://github.com/ВАШ_НИК/GifStudioPro.git)
+ git clone [https://github.com/ВАШ_НИК/GifStudioPro.git](https://github.com/ВАШ_НИК/GifStudioPro.git)](https://github.com/zazauserr/GIF-Maker.git)
  ```
 3.  Go to the project folder:
  ```
