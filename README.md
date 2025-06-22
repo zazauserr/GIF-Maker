@@ -42,7 +42,7 @@ A simple desktop application for creating GIF animations from videos by URL (You
 
 3. **Install dependencies and FFmpeg:**
    ```
-   install_dependencies.bat
+   requirements.bat
    ```
 
 4. **Launch GIF Maker:**
