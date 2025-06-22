@@ -17,9 +17,8 @@ A simple desktop application for creating GIF animations from videos by URL (You
 
 ## 📸 Screenshots
 
-<!-- Add screenshots of your application here -->
-<!-- ![Main window](screenshots/main-window.png) -->
-<!-- ![GIF settings](screenshots/gif-settings.png) -->
+![image](https://github.com/user-attachments/assets/5dd83532-f39e-4399-8d23-8a337f0e8c9d)
+
 
 ## 🚀 Quick Start
 
