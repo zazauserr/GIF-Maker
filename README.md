@@ -93,18 +93,6 @@ GIF-Maker/
 ├── README.md                # Documentation
 ```
 
-### Development Setup
-```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate it
-venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
 ## 📋 Roadmap
 
 - [ ] Batch processing support
