@@ -55,7 +55,7 @@ if sys.platform == 'win32':
         wmi = None # Определяем wmi как None, если импорт не удался
 
 # --- Constants ---
-URL_PLACEHOLDER = "Вставьте URL видео (YouTube, и т.д.)"
+URL_PLACEHOLDER = "Insert URL (YouTube, etc.)"
 TEMP_GIF_FILENAME = "output.gif"
 TEMP_PALETTE_FILENAME = "palette.png"
 
@@ -436,26 +436,26 @@ class GifStudioPro:
                                  activeforeground=self.colors['text_primary'], bd=0)
         paste_button.pack(side='left', padx=5, ipady=1)
 
-        self.load_btn = self.widget_helper.create_custom_button(url_container, "ЗАГРУЗИТЬ", self.start_download, 100, 36)
+        self.load_btn = self.widget_helper.create_custom_button(url_container, "UPLOAD", self.start_download, 100, 36)
         self.load_btn.pack(side='right', padx=(5, 0))
 
-        self._create_panel_header(self.left_panel, "Настройки")
+        self._create_panel_header(self.left_panel, "Settings")
         settings_frame = tk.Frame(self.left_panel, bg=self.colors['bg_panel'])
         settings_frame.pack(fill='both', expand=True, padx=30, pady=10)
 
         vcmd = (self.root.register(self.validate_time_input), '%P')
 
-        tk.Label(settings_frame, text="СТАРТ (сек)", font=self.fonts['h2'], fg=self.colors['text_secondary'], bg=self.colors['bg_panel']).pack()
+        tk.Label(settings_frame, text="START (sec)", font=self.fonts['h2'], fg=self.colors['text_secondary'], bg=self.colors['bg_panel']).pack()
         self.start_var = tk.StringVar(value="0.0")
         start_cont, self.start_entry = self.widget_helper.create_custom_entry(settings_frame, self.start_var, vcmd)
         start_cont.pack()
 
-        tk.Label(settings_frame, text="КОНЕЦ (сек)", font=self.fonts['h2'], fg=self.colors['text_secondary'], bg=self.colors['bg_panel']).pack(pady=(10,0))
+        tk.Label(settings_frame, text="END (sec)", font=self.fonts['h2'], fg=self.colors['text_secondary'], bg=self.colors['bg_panel']).pack(pady=(10,0))
         self.end_var = tk.StringVar(value="5.0")
         end_cont, self.end_entry = self.widget_helper.create_custom_entry(settings_frame, self.end_var, vcmd)
         end_cont.pack()
 
-        self.duration_var = tk.StringVar(value="Длительность: 5.0 сек")
+        self.duration_var = tk.StringVar(value="Duration: 5.0 сек")
         tk.Label(self.left_panel, textvariable=self.duration_var, font=self.fonts['body'], fg=self.colors['accent'], bg=self.colors['bg_panel']).pack(pady=5)
         self.start_var.trace_add('write', self.update_duration)
         self.end_var.trace_add('write', self.update_duration)
@@ -465,9 +465,9 @@ class GifStudioPro:
         self.width_var = tk.StringVar()
         self.fps_var = tk.StringVar()
         self.quality_var = tk.StringVar()
-        self._create_setting_control(params_frame, "ШИРИНА (PX)", self.width_var, ["320", "480", "640", "720"], "480")
+        self._create_setting_control(params_frame, "WIDTH (PX)", self.width_var, ["320", "480", "640", "720"], "480")
         self._create_setting_control(params_frame, "FPS", self.fps_var, ["10", "15", "20", "25", "30"], "25")
-        self._create_setting_control(params_frame, "КАЧЕСТВО", self.quality_var, ["fast", "medium", "high"], "medium")
+        self._create_setting_control(params_frame, "QUALITY", self.quality_var, ["fast", "medium", "high"], "medium")
 
     def _populate_right_panel(self):
         """Заполняет правую панель элементами управления."""
@@ -486,7 +486,7 @@ class GifStudioPro:
         self.info_text = tk.Text(status_frame, height=3, font=self.fonts['small'], bg=self.colors['bg_panel'], fg=self.colors['text_secondary'], relief='flat', bd=0, wrap='word', state='disabled')
         self.info_text.pack(fill='x', pady=(5,0))
 
-        self.status_var = tk.StringVar(value="> Готов к работе...")
+        self.status_var = tk.StringVar(value="> Ready to go...")
         tk.Label(status_frame, textvariable=self.status_var, font=self.fonts['body'], fg=self.colors['text_primary'], bg=self.colors['bg_panel'], anchor='w', wraplength=500).pack(fill='x')
         self.progress_canvas = tk.Canvas(status_frame, width=400, height=10, bg=self.colors['bg_accent'], highlightthickness=0)
         self.progress_canvas.pack(fill='x', pady=5)
@@ -496,7 +496,7 @@ class GifStudioPro:
         actions_frame.grid(row=2, column=0, sticky='sew', padx=20, pady=(10, 20))
         actions_frame.grid_columnconfigure((0,1), weight=1)
 
-        self.create_btn = self.widget_helper.create_custom_button(actions_frame, "СОЗДАТЬ GIF", self.start_gif_creation, 200, 50)
+        self.create_btn = self.widget_helper.create_custom_button(actions_frame, "СREATE GIF", self.start_gif_creation, 200, 50)
         self.create_btn.grid(row=0, column=0, sticky='e', padx=5)
         self.save_btn = self.widget_helper.create_custom_button(actions_frame, "СОХРАНИТЬ", self.save_gif, 200, 50)
         self.save_btn.grid(row=0, column=1, sticky='w', padx=5)
@@ -797,17 +797,17 @@ class GifStudioPro:
         duration = self.video_info.get('duration', 0)
         self.end_var.set(str(min(5.0, duration)))
 
-        info_text = f"Видео загружено успешно\nДлительность: {duration:.1f} сек"
+        info_text = f"Video uploaded successfully\nDuration: {duration:.1f} sec"
         self.update_info_display(info_text)
-        self.update_progress(100, "Видео готово к обработке")
+        self.update_progress(100, "The video is ready for processing")
 
         self.is_processing = False
         self.update_ui_state()
 
     def on_download_error(self, error_message: str):
         """Обработчик ошибки загрузки."""
-        self.update_progress(0, "Ошибка загрузки")
-        self.update_info_display(f"Ошибка: {error_message}")
+        self.update_progress(0, "Download error")
+        self.update_info_display(f"Error: {error_message}")
         self.is_processing = False
         self.update_ui_state()
 
@@ -822,21 +822,21 @@ class GifStudioPro:
             end_time = float(self.end_var.get() or 0)
 
             if start_time >= end_time:
-                messagebox.showwarning("Внимание", "Время начала должно быть меньше времени окончания")
+                messagebox.showwarning("Attention", "Start time must be less than end timeDuration must be greater than 0")
                 return
 
             duration = end_time - start_time
             if duration <= 0:
-                messagebox.showwarning("Внимание", "Длительность должна быть больше 0")
+                messagebox.showwarning("Attention", "The duration must be greater than 0")
                 return
 
         except ValueError:
-            messagebox.showwarning("Внимание", "Введите корректные значения времени")
+            messagebox.showwarning("Attention", "Enter correct time values")
             return
 
         self.is_processing = True
         self.update_ui_state()
-        self.update_progress(0, "Создаем GIF...")
+        self.update_progress(0, "Creating a GIF...")
 
         self.active_thread = CancellableThread(target=self.create_gif)
         self.active_thread.start()
@@ -859,11 +859,11 @@ class GifStudioPro:
 
             # Проверки существования файлов
             if not video_path.exists():
-                self.root.after(0, self.on_gif_error, f"Видеофайл не найден: {video_path}")
+                self.root.after(0, self.on_gif_error, f"Video file not found: {video_path}")
                 return
 
             if not self.ffmpeg_path.exists():
-                self.root.after(0, self.on_gif_error, f"FFmpeg не найден: {self.ffmpeg_path}")
+                self.root.after(0, self.on_gif_error, f"FFmpeg not found: {self.ffmpeg_path}")
                 return
 
             # Очистка старых файлов с улучшенной обработкой ошибок
@@ -878,10 +878,10 @@ class GifStudioPro:
                             backup_path = file.with_suffix(f'.backup_{int(time.time())}')
                             file.rename(backup_path)
                         except Exception as rename_error:
-                            self.root.after(0, self.on_gif_error, f"Не удалось очистить временный файл: {rename_error}")
+                            self.root.after(0, self.on_gif_error, f"Failed to clear the temporary file: {rename_error}")
                             return
                     except Exception as e:
-                        print(f"Предупреждение: не удалось удалить {file}: {e}")
+                        print(f"Warning: failed to delete {file}: {e}")
 
             # Создаем директорию если не существует
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -923,25 +923,25 @@ class GifStudioPro:
             palette_manager.run()
 
         except Exception as e:
-            self.root.after(0, self.on_gif_error, f"Ошибка настройки: {str(e)}")
+            self.root.after(0, self.on_gif_error, f"Configuration error: {str(e)}")
 
     def on_palette_progress(self, progress: float, message: str):
             """Обработчик прогресса создания палитры."""
             if progress >= 0:
-                self.root.after(0, self.update_progress, progress * 0.3, f"Создание палитры: {progress:.1f}%")
+                self.root.after(0, self.update_progress, progress * 0.3, f"Creating a palette: {progress:.1f}%")
             else:
-                self.root.after(0, self.update_progress, -1, f"Палитра: {message[:60]}...")
+                self.root.after(0, self.update_progress, -1, f"Palette: {message[:60]}...")
 
     def on_palette_complete(self, return_code: int, error_message: str):
         """Обработчик завершения создания палитры с улучшенной обработкой."""
         if return_code != 0:
-            error_msg = error_message or f"Ошибка создания палитры (код {return_code})"
+            error_msg = error_message or f"Palette creation error (code {return_code})"
             self.root.after(0, self.on_gif_error, error_msg)
             return
 
         palette_path = self.temp_dir.resolve() / TEMP_PALETTE_FILENAME
         if not palette_path.exists() or palette_path.stat().st_size == 0:
-            self.root.after(0, self.on_gif_error, "Файл палитры не создан или пуст")
+            self.root.after(0, self.on_gif_error, "Palette file not created or empty")
             return
 
         if self.active_thread and self.active_thread.stopped():
@@ -963,42 +963,12 @@ class GifStudioPro:
             dither_settings = {
                 'fast': 'dither=none',
                 'medium': 'dither=bayer:bayer_scale=2',
-                'high': 'dither=floyd_steinberg'
+                'high': 'dither=floyd_steinberg'  # Изменено на более стабильный алгоритм
             }
 
             dither = dither_settings.get(quality, dither_settings['medium'])
 
-            # --- WATERMARK FIX FOR FONTCONFIG ERROR ---
-            watermark_text = 'zazauserr'
-            margin = 5
-            font_size = max(8, int(width / 48))
-            
-            # Базовые параметры для drawtext
-            drawtext_params = [
-                f"text='{watermark_text}'",
-                f"x=w-text_w-{margin}",
-                f"y=h-text_h-{margin}",
-                f"fontsize={font_size}",
-                "fontcolor=white@0.5",
-                "shadowcolor=black@0.5",
-                "shadowx=1",
-                "shadowy=1"
-            ]
-
-            # Для Windows указываем путь к шрифту, чтобы избежать ошибки Fontconfig
-            if sys.platform == "win32":
-                font_dir = os.environ.get("WINDIR", "C:/Windows")
-                font_file = Path(font_dir) / "Fonts" / "Arial.ttf"
-                if font_file.exists():
-                    # Экранируем путь для FFmpeg filtergraph
-                    font_path_escaped = str(font_file.as_posix()).replace(':', '\\:')
-                    drawtext_params.append(f"fontfile='{font_path_escaped}'")
-
-            drawtext_filter = f"drawtext={':'.join(drawtext_params)}"
-            filter_complex_string = f'[0:v]scale={width}:-1:flags=lanczos,fps={fps},{drawtext_filter}[v];[v][1:v]paletteuse={dither}'
-            # --- END OF FIX ---
-
-            # Команда создания GIF
+            # Упрощенная и более стабильная команда создания GIF
             gif_cmd = [
                 str(self.ffmpeg_path.resolve()),
                 '-y',
@@ -1006,13 +976,13 @@ class GifStudioPro:
                 '-t', f'{duration:.3f}',
                 '-i', str(video_path),
                 '-i', str(palette_path),
-                '-filter_complex', filter_complex_string,
+                '-filter_complex', f'[0:v]scale={width}:-1:flags=lanczos,fps={fps}[v];[v][1:v]paletteuse={dither}',
                 '-loglevel', 'warning',
-                '-f', 'gif',
+                '-f', 'gif',  # Явно указываем формат выхода
                 str(output_path)
             ]
 
-            print(f"GIF command: {' '.join(map(str, gif_cmd))}")
+            print(f"GIF command: {' '.join(gif_cmd)}")
 
             gif_manager = FFmpegProcessManager(
                 gif_cmd,
