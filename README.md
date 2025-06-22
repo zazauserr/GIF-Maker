@@ -77,9 +77,9 @@ The application uses the following libraries:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| Width | Output GIF width in pixels | 480px |
-| FPS | Frame rate | 15 |
-| Quality | Compression quality (1-100) | 85 |
+| Width | Output GIF width in pixels | 320/480/640/720px |
+| FPS | Frame rate | 10-30 |
+| Quality | Compression quality | fast/medium/high |
 
 ## 🛠️ Development
 
