@@ -109,7 +109,7 @@ GIF-Maker/
 - Make sure Python is added to PATH
 
 **FFmpeg not found:**
-- The `install_dependencies.bat` script automatically installs FFmpeg
+- The `requirements.bat` script automatically installs FFmpeg
 - Check if the installation completed successfully
 
 **Video download errors:**
