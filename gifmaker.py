@@ -15,7 +15,7 @@ from typing import Optional, List, Dict, Any, Callable, Tuple
 
 # --- Dependency Management ---
 def check_and_install_dependencies():
-    """Проверяет и устанавливает необходимые зависимости, если они отсутствуют."""
+    """Checks and installs required dependencies if they are missing."""
     required = {'yt_dlp': 'yt-dlp', 'PIL': 'Pillow', 'requests': 'requests'}
     if sys.platform == 'win32':
         required['wmi'] = 'wmi'
@@ -29,14 +29,14 @@ def check_and_install_dependencies():
         except ImportError:
             missing.append(package)
     if missing:
-        msg = f"Не найдены обязательные модули: {', '.join(missing)}.\n\nУстановить их автоматически с помощью pip?"
-        if messagebox.askyesno("Проверка зависимостей", msg):
+        msg = f"Required modules not found: {', '.join(missing)}.\n\nInstall them automatically using pip?"
+        if messagebox.askyesno("Dependency Check", msg):
             try:
                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', *missing])
-                messagebox.showinfo("Успех", "Зависимости установлены. Пожалуйста, перезапустите приложение.")
+                messagebox.showinfo("Success", "Dependencies installed. Please restart the application.")
                 return False
             except subprocess.CalledProcessError as e:
-                messagebox.showerror("Ошибка установки", f"Не удалось установить зависимости:\n{e}\n\nПопробуйте установить их вручную: pip install {' '.join(missing)}")
+                messagebox.showerror("Installation Error", f"Failed to install dependencies:\n{e}\n\nTry installing them manually: pip install {' '.join(missing)}")
                 return False
         else:
             return False
@@ -52,7 +52,7 @@ if sys.platform == 'win32':
     try:
         import wmi
     except ImportError:
-        wmi = None # Определяем wmi как None, если импорт не удался
+        wmi = None # Define wmi as None if import failed
 
 # --- Constants ---
 URL_PLACEHOLDER = "Insert URL (YouTube, etc.)"
@@ -61,21 +61,21 @@ TEMP_PALETTE_FILENAME = "palette.png"
 
 # --- Utility Classes ---
 class CancellableThread(threading.Thread):
-    """Поток, который можно безопасно остановить."""
+    """A thread that can be safely stopped."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._stop_event = threading.Event()
 
     def stop(self):
-        """Устанавливает флаг остановки."""
+        """Sets the stop flag."""
         self._stop_event.set()
 
     def stopped(self) -> bool:
-        """Проверяет, был ли установлен флаг остановки."""
+        """Checks if the stop flag was set."""
         return self._stop_event.is_set()
 
 class FFmpegProcessManager:
-    """Управляет запуском, отслеживанием прогресса и отменой процесса FFmpeg."""
+    """Manages launching, tracking progress and canceling FFmpeg process."""
     def __init__(self, command: List[str], progress_callback: Callable, completion_callback: Callable, total_duration: float = 0):
         self.command = command
         self.progress_callback = progress_callback
@@ -86,24 +86,24 @@ class FFmpegProcessManager:
         self._stop_event = threading.Event()
 
     def run(self):
-        """Запускает процесс FFmpeg в отдельном потоке."""
+        """Starts FFmpeg process in a separate thread."""
         self.thread = threading.Thread(target=self._run_process, daemon=True)
         self.thread.start()
 
     def _run_process(self):
-        """Внутренний метод с улучшенной обработкой процесса FFmpeg."""
+        """Internal method with improved FFmpeg process handling."""
         try:
-            # Исправленная подготовка команды
+            # Fixed command preparation
             cmd_str = []
             for arg in self.command:
                 if isinstance(arg, Path):
-                    # Используем абсолютные пути и правильное экранирование
+                    # Use absolute paths and proper escaping
                     path_str = str(arg.resolve().as_posix()) if sys.platform != 'win32' else str(arg.resolve())
                     cmd_str.append(path_str)
                 else:
                     cmd_str.append(str(arg))
 
-            print(f"Executing: {' '.join(cmd_str)}")  # Отладочный вывод
+            print(f"Executing: {' '.join(cmd_str)}")  # Debug output
 
             startupinfo = None
             if sys.platform == 'win32':
@@ -111,20 +111,20 @@ class FFmpegProcessManager:
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startupinfo.wShowWindow = subprocess.SW_HIDE
 
-            # Улучшенные параметры запуска процесса
+            # Improved process startup parameters
             self.process = subprocess.Popen(
                 cmd_str,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,  # Изменено: отдельный поток для stderr
+                stderr=subprocess.PIPE,  # Changed: separate thread for stderr
                 universal_newlines=True,
                 encoding='utf-8',
                 errors='replace',
                 startupinfo=startupinfo,
                 cwd=str(Path.cwd()),
-                env=os.environ.copy()  # Добавлено: копирование окружения
+                env=os.environ.copy()  # Added: environment copying
             )
 
-            # Читаем stdout и stderr параллельно
+            # Read stdout and stderr in parallel
             output_log = []
             error_log = []
             last_progress = -1
@@ -147,17 +147,17 @@ class FFmpegProcessManager:
                         error_log.append(line)
                         self._process_output_line(line, last_progress)
 
-            # Запускаем чтение в отдельных потоках
+            # Start reading in separate threads
             stdout_thread = threading.Thread(target=read_stdout, daemon=True)
             stderr_thread = threading.Thread(target=read_stderr, daemon=True)
 
             stdout_thread.start()
             stderr_thread.start()
 
-            # Ждем завершения процесса
+            # Wait for process completion
             return_code = self.process.wait()
 
-            # Ждем завершения чтения выводов
+            # Wait for output reading completion
             stdout_thread.join(timeout=2)
             stderr_thread.join(timeout=2)
 
@@ -165,10 +165,10 @@ class FFmpegProcessManager:
             self.process.stderr.close()
 
             if self._stop_event.is_set():
-                self.completion_callback(-2, "Процесс отменен пользователем")
+                self.completion_callback(-2, "Process canceled by user")
             elif return_code != 0:
-                # Исправленная обработка кодов ошибок
-                if return_code > 2147483647:  # Исправление для больших unsigned значений
+                # Fixed error code handling
+                if return_code > 2147483647:  # Fix for large unsigned values
                     return_code = return_code - 4294967296
 
                 all_logs = output_log + error_log
@@ -177,42 +177,42 @@ class FFmpegProcessManager:
                                 ['error', 'failed', 'not found', 'invalid', 'cannot', 'permission denied'])]
 
                 if error_lines:
-                    error_msg = "\n".join(error_lines[-5:])  # Последние 5 ошибок
+                    error_msg = "\n".join(error_lines[-5:])  # Last 5 errors
                 else:
-                    error_msg = "\n".join(all_logs[-15:])  # Последние 15 строк
+                    error_msg = "\n".join(all_logs[-15:])  # Last 15 lines
 
-                self.completion_callback(return_code, f"FFmpeg error (код {return_code}):\n{error_msg}")
+                self.completion_callback(return_code, f"FFmpeg error (code {return_code}):\n{error_msg}")
             else:
                 self.completion_callback(0, None)
 
         except FileNotFoundError:
-            self.completion_callback(-1, "FFmpeg не найден. Проверьте путь к исполняемому файлу.")
+            self.completion_callback(-1, "FFmpeg not found. Check the executable path.")
         except Exception as e:
-            self.completion_callback(-1, f"Критическая ошибка: {str(e)}")
+            self.completion_callback(-1, f"Critical error: {str(e)}")
 
     def _process_output_line(self, line: str, last_progress: float):
-        """Обрабатывает строку вывода FFmpeg для извлечения прогресса."""
-        # Улучшенное распознавание прогресса
+        """Processes FFmpeg output line to extract progress."""
+        # Improved progress recognition
         time_match = re.search(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})", line)
         if time_match and self.total_duration > 0:
             h, m, s, ms = map(int, time_match.groups())
             current_time = h * 3600 + m * 60 + s + ms / 100
             progress = min(100, (current_time / self.total_duration) * 100)
 
-            # Обновляем только если прогресс изменился значительно
+            # Update only if progress changed significantly
             if abs(progress - last_progress) > 0.5:
-                self.progress_callback(progress, f"Обработка: {progress:.1f}%")
+                self.progress_callback(progress, f"Processing: {progress:.1f}%")
                 last_progress = progress
         elif "frame=" in line:
-            # Альтернативный способ отслеживания прогресса
-            self.progress_callback(-1, "Обработка кадров...")
+            # Alternative progress tracking method
+            self.progress_callback(-1, "Processing frames...")
 
     def terminate(self):
-        """Принудительно завершает процесс FFmpeg."""
+        """Forcefully terminates FFmpeg process."""
         self._stop_event.set()
         if self.process and self.process.poll() is None:
             try:
-                # На Windows terminate() для ffmpeg может оставлять зомби-процессы
+                # On Windows terminate() for ffmpeg may leave zombie processes
                 if sys.platform == 'win32':
                     subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -231,13 +231,13 @@ class FFmpegProcessManager:
 
 # --- Custom Widget Toolkit ---
 class CustomWidgetHelper:
-    """Помощник для создания стилизованных кастомных виджетов."""
+    """Helper for creating stylized custom widgets."""
     def __init__(self, colors: Dict[str, str], fonts: Dict[str, Tuple]):
         self.colors = colors
         self.fonts = fonts
 
     def create_rounded_rect(self, canvas: tk.Canvas, x1: int, y1: int, x2: int, y2: int, radius: int, **kwargs):
-        """Рисует прямоугольник со скругленными углами на холсте."""
+        """Draws a rectangle with rounded corners on canvas."""
         points = [
             x1 + radius, y1, x1 + radius, y1, x2 - radius, y1, x2 - radius, y1, x2, y1, x2, y1 + radius,
             x2, y1 + radius, x2, y2 - radius, x2, y2 - radius, x2, y2, x2 - radius, y2, x2 - radius, y2,
@@ -246,7 +246,7 @@ class CustomWidgetHelper:
         return canvas.create_polygon(points, **kwargs, smooth=True)
 
     def create_custom_button(self, parent: tk.Widget, text: str, command: Callable, width: int, height: int) -> tk.Canvas:
-        """Создает кастомную анимированную кнопку."""
+        """Creates custom animated button."""
         canvas = tk.Canvas(parent, width=width, height=height, bg=self.colors['bg'], highlightthickness=0)
 
         btn_shape = self.create_rounded_rect(canvas, 2, 2, width - 2, height - 2, 10, fill=self.colors['bg_accent'], outline="")
@@ -285,7 +285,7 @@ class CustomWidgetHelper:
         return canvas
 
     def create_custom_entry(self, parent: tk.Widget, textvariable: tk.StringVar, validation_cmd: Tuple) -> Tuple[tk.Frame, tk.Entry]:
-        """Создает кастомное поле ввода."""
+        """Creates custom input field."""
         container = tk.Frame(parent, bg=self.colors['bg_panel'])
         canvas = tk.Canvas(container, width=200, height=40, bg=self.colors['bg_panel'], highlightthickness=0)
         canvas.pack()
@@ -341,7 +341,7 @@ class GifStudioPro:
             self.root.after(100, self.show_ffmpeg_finder)
 
     def load_logo(self):
-        """Загружает и изменяет размер логотипа из файла bam.png."""
+        """Loads and resizes logo from bam.png file."""
         try:
             logo_path = Path("bam.png")
             if logo_path.exists():
@@ -352,11 +352,11 @@ class GifStudioPro:
                     resized_image = pil_image.resize((new_width, max_height), Image.Resampling.LANCZOS)
                     self.logo_image = ImageTk.PhotoImage(resized_image)
         except Exception as e:
-            print(f"Ошибка загрузки логотипа: {e}")
+            print(f"Logo loading error: {e}")
             self.logo_image = None
 
     def setup_theme_and_style(self):
-        """Настраивает внешний вид приложения: цвета, шрифты, стили."""
+        """Sets up application appearance: colors, fonts, styles."""
         self.root.title("GIF Studio Pro")
         self.root.geometry("1100x750")
         self.root.minsize(1000, 650)
@@ -380,7 +380,7 @@ class GifStudioPro:
         self.widget_helper = CustomWidgetHelper(self.colors, self.fonts)
 
     def _create_main_layout(self):
-        """Создает и размещает основные элементы интерфейса."""
+        """Creates and arranges main interface elements."""
         header = tk.Frame(self.root, bg=self.colors['bg'])
         header.pack(fill='x', pady=20)
 
@@ -416,8 +416,8 @@ class GifStudioPro:
         tk.Label(parent, text=text, font=self.fonts['h1'], fg=self.colors['text_primary'], bg=parent.cget('bg')).pack(pady=(20, 15))
 
     def _populate_left_panel(self):
-        """Заполняет левую панель элементами управления."""
-        self._create_panel_header(self.left_panel, "Источник")
+        """Populates left panel with control elements."""
+        self._create_panel_header(self.left_panel, "Source")
 
         url_container = tk.Frame(self.left_panel, bg=self.colors['bg_panel'])
         url_container.pack(fill='x', padx=20, pady=5)
@@ -455,7 +455,7 @@ class GifStudioPro:
         end_cont, self.end_entry = self.widget_helper.create_custom_entry(settings_frame, self.end_var, vcmd)
         end_cont.pack()
 
-        self.duration_var = tk.StringVar(value="Duration: 5.0 сек")
+        self.duration_var = tk.StringVar(value="Duration: 5.0 sec")
         tk.Label(self.left_panel, textvariable=self.duration_var, font=self.fonts['body'], fg=self.colors['accent'], bg=self.colors['bg_panel']).pack(pady=5)
         self.start_var.trace_add('write', self.update_duration)
         self.end_var.trace_add('write', self.update_duration)
@@ -470,7 +470,7 @@ class GifStudioPro:
         self._create_setting_control(params_frame, "QUALITY", self.quality_var, ["fast", "medium", "high"], "medium")
 
     def _populate_right_panel(self):
-        """Заполняет правую панель элементами управления."""
+        """Populates right panel with control elements."""
         self.right_panel.grid_rowconfigure(0, weight=6)
         self.right_panel.grid_rowconfigure(1, weight=2)
         self.right_panel.grid_rowconfigure(2, weight=1)
@@ -496,15 +496,15 @@ class GifStudioPro:
         actions_frame.grid(row=2, column=0, sticky='sew', padx=20, pady=(10, 20))
         actions_frame.grid_columnconfigure((0,1), weight=1)
 
-        self.create_btn = self.widget_helper.create_custom_button(actions_frame, "СREATE GIF", self.start_gif_creation, 200, 50)
+        self.create_btn = self.widget_helper.create_custom_button(actions_frame, "CREATE GIF", self.start_gif_creation, 200, 50)
         self.create_btn.grid(row=0, column=0, sticky='e', padx=5)
-        self.save_btn = self.widget_helper.create_custom_button(actions_frame, "СОХРАНИТЬ", self.save_gif, 200, 50)
+        self.save_btn = self.widget_helper.create_custom_button(actions_frame, "SAVE", self.save_gif, 200, 50)
         self.save_btn.grid(row=0, column=1, sticky='w', padx=5)
 
-        self.cancel_btn = self.widget_helper.create_custom_button(self.right_panel, "ОТМЕНА", self.cancel_operation, 150, 40)
+        self.cancel_btn = self.widget_helper.create_custom_button(self.right_panel, "CANCEL", self.cancel_operation, 150, 40)
 
     def _create_setting_control(self, parent: tk.Widget, label_text: str, variable: tk.StringVar, values: List[str], default_value: str):
-        """Создает выпадающий список для настроек."""
+        """Creates dropdown list for settings."""
         frame = tk.Frame(parent, bg=self.colors['bg_panel'])
         frame.pack(fill='x', pady=8)
         tk.Label(frame, text=label_text, font=self.fonts['h2'], fg=self.colors['text_secondary'], bg=self.colors['bg_panel']).pack(side='left')
@@ -528,22 +528,22 @@ class GifStudioPro:
         variable.set(default_value)
 
     def show_ffmpeg_finder(self):
-        """Показывает окно с предложением указать путь к FFmpeg."""
+        """Shows window with suggestion to specify FFmpeg path."""
         self.ffmpeg_finder_frame = tk.Frame(self.root, bg=self.colors['bg'], highlightbackground=self.colors['accent'], highlightthickness=1)
         self.ffmpeg_finder_frame.place(relx=0.5, rely=0.5, anchor='center')
 
-        tk.Label(self.ffmpeg_finder_frame, text="FFMPEG НЕ НАЙДЕН", font=self.fonts['h1'], fg=self.colors['accent_alt'], bg=self.colors['bg']).pack(pady=10, padx=20)
-        tk.Label(self.ffmpeg_finder_frame, text="FFmpeg необходим для конвертации видео.\nПожалуйста, укажите путь к ffmpeg.exe.", font=self.fonts['body'], fg=self.colors['text_primary'], bg=self.colors['bg']).pack(pady=5, padx=20)
+        tk.Label(self.ffmpeg_finder_frame, text="FFMPEG NOT FOUND", font=self.fonts['h1'], fg=self.colors['accent_alt'], bg=self.colors['bg']).pack(pady=10, padx=20)
+        tk.Label(self.ffmpeg_finder_frame, text="FFmpeg is required for video conversion.\nPlease specify path to ffmpeg.exe.", font=self.fonts['body'], fg=self.colors['text_primary'], bg=self.colors['bg']).pack(pady=5, padx=20)
 
-        link = tk.Label(self.ffmpeg_finder_frame, text="Скачать FFmpeg", font=self.fonts['body'], fg=self.colors['accent'], bg=self.colors['bg'], cursor="hand2")
+        link = tk.Label(self.ffmpeg_finder_frame, text="Download FFmpeg", font=self.fonts['body'], fg=self.colors['accent'], bg=self.colors['bg'], cursor="hand2")
         link.pack(pady=5)
         link.bind("<Button-1>", lambda e: webbrowser.open("https://ffmpeg.org/download.html", new=2))
 
-        self.widget_helper.create_custom_button(self.ffmpeg_finder_frame, "УКАЗАТЬ ПУТЬ", self.select_ffmpeg_path, 180, 40).pack(pady=20)
+        self.widget_helper.create_custom_button(self.ffmpeg_finder_frame, "SELECT PATH", self.select_ffmpeg_path, 180, 40).pack(pady=20)
 
     def select_ffmpeg_path(self):
-        """Открывает диалог выбора файла для ffmpeg.exe."""
-        path = filedialog.askopenfilename(title="Выберите ffmpeg.exe", filetypes=[("Executable", "*.exe"), ("All files", "*.*")])
+        """Opens file selection dialog for ffmpeg.exe."""
+        path = filedialog.askopenfilename(title="Select ffmpeg.exe", filetypes=[("Executable", "*.exe"), ("All files", "*.*")])
         if path:
             self.ffmpeg_path = Path(path)
             self.ffmpeg_finder_frame.destroy()
@@ -561,7 +561,7 @@ class GifStudioPro:
             event.widget.config(fg=self.colors['text_secondary'])
 
     def paste_from_clipboard(self):
-        """Вставляет текст из буфера обмена."""
+        """Pastes text from clipboard."""
         try:
             clipboard_text = self.root.clipboard_get()
             if clipboard_text:
@@ -572,7 +572,7 @@ class GifStudioPro:
             pass
 
     def validate_time_input(self, value: str) -> bool:
-        """Валидация ввода времени."""
+        """Time input validation."""
         if not value:
             return True
         try:
@@ -582,34 +582,34 @@ class GifStudioPro:
             return False
 
     def update_duration(self, *args):
-        """Обновляет отображение длительности."""
+        """Updates duration display."""
         try:
             start = float(self.start_var.get() or 0)
             end = float(self.end_var.get() or 0)
             duration = max(0, end - start)
-            self.duration_var.set(f"Длительность: {duration:.1f} сек")
+            self.duration_var.set(f"Duration: {duration:.1f} sec")
         except ValueError:
-            self.duration_var.set("Длительность: ?.? сек")
+            self.duration_var.set("Duration: ?.? sec")
 
     def update_ui_state(self):
-        """Обновляет состояние элементов интерфейса."""
+        """Updates interface element states."""
         has_video = self.video_path is not None
         has_gif = self.gif_path is not None
         has_ffmpeg = self.ffmpeg_path is not None
 
-        # Управление кнопками
+        # Button management
         self.load_btn.configure_state('normal' if has_ffmpeg and not self.is_processing else 'disabled')
         self.create_btn.configure_state('normal' if has_video and has_ffmpeg and not self.is_processing else 'disabled')
         self.save_btn.configure_state('normal' if has_gif and not self.is_processing else 'disabled')
 
-        # Отображение кнопки отмены
+        # Cancel button display
         if self.is_processing:
             self.cancel_btn.place(relx=0.5, rely=0.95, anchor='s')
         else:
             self.cancel_btn.place_forget()
 
     def update_progress(self, progress: float, message: str = ""):
-        """Обновляет прогресс-бар."""
+        """Updates progress bar."""
         if progress >= 0:
             canvas_width = self.progress_canvas.winfo_width()
             fill_width = int((progress / 100) * canvas_width)
@@ -619,7 +619,7 @@ class GifStudioPro:
             self.status_var.set(f"> {message}")
 
     def update_info_display(self, text: str):
-        """Обновляет информационное поле."""
+        """Updates information field."""
         self.info_text.config(state='normal')
         self.info_text.delete(1.0, tk.END)
         self.info_text.insert(tk.END, text)
@@ -627,10 +627,10 @@ class GifStudioPro:
 
     # --- Video Processing ---
     def find_ffmpeg(self) -> Optional[Path]:
-        """Ищет FFmpeg в системе с улучшенной логикой поиска."""
+        """Searches for FFmpeg in system with improved search logic."""
         possible_names = ['ffmpeg.exe', 'ffmpeg'] if sys.platform == 'win32' else ['ffmpeg']
 
-        # Сначала проверяем PATH
+        # First check PATH
         for name in possible_names:
             found_path = shutil.which(name)
             if found_path:
@@ -638,7 +638,7 @@ class GifStudioPro:
                 if self.test_ffmpeg(path):
                     return path
 
-        # Проверяем локальные пути
+        # Check local paths
         local_paths = [
             Path.cwd() / "ffmpeg.exe",
             Path.cwd() / "ffmpeg",
@@ -646,7 +646,7 @@ class GifStudioPro:
             Path.cwd() / "bin" / "ffmpeg"
         ]
 
-        # Системные пути
+        # System paths
         if sys.platform == 'win32':
             system_paths = [
                 Path("C:/ffmpeg/bin/ffmpeg.exe"),
@@ -669,7 +669,7 @@ class GifStudioPro:
         return None
 
     def test_ffmpeg(self, ffmpeg_path: Path) -> bool:
-        """Тестирует работоспособность FFmpeg с улучшенной проверкой."""
+        """Tests FFmpeg functionality with improved checking."""
         try:
             cmd = [str(ffmpeg_path), '-version']
             startupinfo = None
@@ -689,13 +689,13 @@ class GifStudioPro:
             return (result.returncode == 0 and
                     'ffmpeg version' in result.stdout.lower())
         except Exception as e:
-            print(f"Ошибка тестирования FFmpeg {ffmpeg_path}: {e}")
+            print(f"FFmpeg testing error {ffmpeg_path}: {e}")
             return False
 
     def get_video_info(self, video_path: Path) -> Dict[str, Any]:
-        """Получает информацию о видео с помощью FFprobe."""
+        """Gets video information using FFprobe."""
         try:
-            # Пытаемся найти ffprobe рядом с ffmpeg
+            # Try to find ffprobe next to ffmpeg
             ffprobe_name = "ffprobe.exe" if sys.platform == 'win32' else "ffprobe"
             ffprobe_path = self.ffmpeg_path.parent / ffprobe_name
             
@@ -704,7 +704,7 @@ class GifStudioPro:
             if use_ffprobe:
                 cmd = [str(ffprobe_path), '-v', 'quiet', '-print_format', 'json', '-show_format', str(video_path)]
             else:
-                # Если ffprobe не найден, используем ffmpeg для получения информации
+                # If ffprobe not found, use ffmpeg to get information
                 cmd = [str(self.ffmpeg_path), '-i', str(video_path), '-f', 'null', '-']
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, encoding='utf-8', errors='replace')
@@ -714,7 +714,7 @@ class GifStudioPro:
                 duration = float(info['format']['duration'])
                 return {'duration': duration}
             else:
-                 # Простой парсинг вывода FFmpeg для получения длительности
+                 # Simple parsing of FFmpeg output to get duration
                 duration_match = re.search(r"Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})", result.stderr)
                 if duration_match:
                     h, m, s, ms = map(int, duration_match.groups())
@@ -724,14 +724,14 @@ class GifStudioPro:
             return {'duration': 0}
 
         except Exception as e:
-            print(f"Ошибка получения информации о видео: {e}")
+            print(f"Video information error: {e}")
             return {'duration': 0}
 
     def start_download(self):
-        """Запускает загрузку видео."""
+        """Starts video download."""
         url = self.url_var.get().strip()
         if not url or url == URL_PLACEHOLDER:
-            messagebox.showwarning("Внимание", "Введите URL видео")
+            messagebox.showwarning("Warning", "Enter video URL")
             return
 
         if self.active_thread:
@@ -739,13 +739,13 @@ class GifStudioPro:
 
         self.is_processing = True
         self.update_ui_state()
-        self.update_progress(0, "Начинаем загрузку...")
+        self.update_progress(0, "Starting download...")
 
         self.active_thread = CancellableThread(target=self.download_video, args=(url,))
         self.active_thread.start()
 
     def download_video(self, url: str):
-        """Загружает видео с помощью yt-dlp."""
+        """Downloads video using yt-dlp."""
         try:
             output_path = self.temp_dir / "downloaded_video.%(ext)s"
 
@@ -758,23 +758,23 @@ class GifStudioPro:
 
             def progress_hook(d):
                 if self.active_thread and self.active_thread.stopped():
-                    raise Exception("Загрузка отменена")
+                    raise Exception("Download canceled")
 
                 if d['status'] == 'downloading':
                     try:
                         percent = float(d.get('_percent_str', '0%').replace('%', ''))
-                        self.root.after(0, self.update_progress, percent, f"Загрузка: {percent:.1f}%")
+                        self.root.after(0, self.update_progress, percent, f"Downloading: {percent:.1f}%")
                     except:
-                        self.root.after(0, self.update_progress, -1, "Загрузка...")
+                        self.root.after(0, self.update_progress, -1, "Downloading...")
                 elif d['status'] == 'finished':
-                    self.root.after(0, self.update_progress, 100, "Загрузка завершена")
+                    self.root.after(0, self.update_progress, 100, "Download completed")
 
             ydl_opts['progress_hooks'] = [progress_hook]
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
 
-            # Находим загруженный файл
+            # Find downloaded file
             for file in self.temp_dir.glob("downloaded_video.*"):
                 if file.is_file():
                     self.video_path = file
@@ -784,28 +784,28 @@ class GifStudioPro:
                 self.video_info = self.get_video_info(self.video_path)
                 self.root.after(0, self.on_video_loaded)
             else:
-                self.root.after(0, self.on_download_error, "Загруженный файл не найден")
+                self.root.after(0, self.on_download_error, "Downloaded file not found")
 
         except Exception as e:
-            if "отменена" not in str(e):
+            if "canceled" not in str(e):
                 self.root.after(0, self.on_download_error, str(e))
         finally:
             self.active_thread = None
 
     def on_video_loaded(self):
-        """Обработчик успешной загрузки видео."""
+        """Handler for successful video loading."""
         duration = self.video_info.get('duration', 0)
         self.end_var.set(str(min(5.0, duration)))
 
         info_text = f"Video uploaded successfully\nDuration: {duration:.1f} sec"
         self.update_info_display(info_text)
-        self.update_progress(100, "The video is ready for processing")
+        self.update_progress(100, "Video ready for processing")
 
         self.is_processing = False
         self.update_ui_state()
 
     def on_download_error(self, error_message: str):
-        """Обработчик ошибки загрузки."""
+        """Download error handler."""
         self.update_progress(0, "Download error")
         self.update_info_display(f"Error: {error_message}")
         self.is_processing = False
@@ -813,7 +813,7 @@ class GifStudioPro:
 
     # --- GIF Creation ---
     def start_gif_creation(self):
-        """Запускает создание GIF."""
+        """Starts GIF creation."""
         if not self.video_path or not self.ffmpeg_path:
             return
 
@@ -822,27 +822,27 @@ class GifStudioPro:
             end_time = float(self.end_var.get() or 0)
 
             if start_time >= end_time:
-                messagebox.showwarning("Attention", "Start time must be less than end timeDuration must be greater than 0")
+                messagebox.showwarning("Warning", "Start time must be less than end time")
                 return
 
             duration = end_time - start_time
             if duration <= 0:
-                messagebox.showwarning("Attention", "The duration must be greater than 0")
+                messagebox.showwarning("Warning", "Duration must be greater than 0")
                 return
 
         except ValueError:
-            messagebox.showwarning("Attention", "Enter correct time values")
+            messagebox.showwarning("Warning", "Enter correct time values")
             return
 
         self.is_processing = True
         self.update_ui_state()
-        self.update_progress(0, "Creating a GIF...")
+        self.update_progress(0, "Creating GIF...")
 
         self.active_thread = CancellableThread(target=self.create_gif)
         self.active_thread.start()
 
     def create_gif(self):
-        """Создает GIF с улучшенной обработкой ошибок."""
+        """Creates GIF with improved error handling."""
         try:
             start_time = float(self.start_var.get())
             end_time = float(self.end_var.get())
@@ -852,12 +852,12 @@ class GifStudioPro:
 
             duration = end_time - start_time
 
-            # Используем абсолютные пути
+            # Use absolute paths
             output_path = self.temp_dir.resolve() / TEMP_GIF_FILENAME
             palette_path = self.temp_dir.resolve() / TEMP_PALETTE_FILENAME
             video_path = self.video_path.resolve()
 
-            # Проверки существования файлов
+            # File existence checks
             if not video_path.exists():
                 self.root.after(0, self.on_gif_error, f"Video file not found: {video_path}")
                 return
@@ -866,37 +866,37 @@ class GifStudioPro:
                 self.root.after(0, self.on_gif_error, f"FFmpeg not found: {self.ffmpeg_path}")
                 return
 
-            # Очистка старых файлов с улучшенной обработкой ошибок
+            # Clear old files with improved error handling
             for file in [output_path, palette_path]:
                 if file.exists():
                     try:
                         file.unlink()
-                        time.sleep(0.1)  # Небольшая задержка для освобождения файла
+                        time.sleep(0.1)  # Small delay for file release
                     except PermissionError:
-                        # Пытаемся переименовать файл, если не можем удалить
+                        # Try to rename file if can't delete
                         try:
                             backup_path = file.with_suffix(f'.backup_{int(time.time())}')
                             file.rename(backup_path)
                         except Exception as rename_error:
-                            self.root.after(0, self.on_gif_error, f"Failed to clear the temporary file: {rename_error}")
+                            self.root.after(0, self.on_gif_error, f"Failed to clear temporary file: {rename_error}")
                             return
                     except Exception as e:
                         print(f"Warning: failed to delete {file}: {e}")
 
-            # Создаем директорию если не существует
+            # Create directory if doesn't exist
             output_path.parent.mkdir(parents=True, exist_ok=True)
             palette_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Настройки качества (упрощенные для избежания ошибок)
+            # Quality settings (simplified to avoid errors)
             quality_settings = {
                 'fast': 'stats_mode=single',
-                'medium': 'stats_mode=diff',  # Изменено с full на diff
-                'high': 'stats_mode=diff:max_colors=256'  # Изменено с full на diff
+                'medium': 'stats_mode=diff',  # Changed from full to diff
+                'high': 'stats_mode=diff:max_colors=256'  # Changed from full to diff
             }
 
             palette_gen = quality_settings.get(quality, quality_settings['medium'])
 
-            # Упрощенная команда создания палитры с проверкой параметров
+            # Simplified palette creation command with parameter checking
             palette_cmd = [
                 str(self.ffmpeg_path.resolve()),
                 '-y',
@@ -904,14 +904,14 @@ class GifStudioPro:
                 '-t', f'{duration:.3f}',
                 '-i', str(video_path),
                 '-vf', f'scale={width}:-1:flags=lanczos,palettegen={palette_gen}',
-                '-vframes', '1',  # <-- НОВОЕ ИЗМЕНЕНИЕ: Явно указываем, что нужен только один кадр
+                '-vframes', '1',  # NEW CHANGE: Explicitly specify only one frame needed
                 '-loglevel', 'warning',
                 str(palette_path)
             ]
 
             print(f"Palette command: {' '.join(palette_cmd)}")
 
-            # Запуск создания палитры
+            # Start palette creation
             palette_manager = FFmpegProcessManager(
                 palette_cmd,
                 self.on_palette_progress,
@@ -926,14 +926,14 @@ class GifStudioPro:
             self.root.after(0, self.on_gif_error, f"Configuration error: {str(e)}")
 
     def on_palette_progress(self, progress: float, message: str):
-            """Обработчик прогресса создания палитры."""
+            """Palette creation progress handler."""
             if progress >= 0:
-                self.root.after(0, self.update_progress, progress * 0.3, f"Creating a palette: {progress:.1f}%")
+                self.root.after(0, self.update_progress, progress * 0.3, f"Creating palette: {progress:.1f}%")
             else:
                 self.root.after(0, self.update_progress, -1, f"Palette: {message[:60]}...")
 
     def on_palette_complete(self, return_code: int, error_message: str):
-        """Обработчик завершения создания палитры с улучшенной обработкой."""
+        """Palette creation completion handler with improved handling."""
         if return_code != 0:
             error_msg = error_message or f"Palette creation error (code {return_code})"
             self.root.after(0, self.on_gif_error, error_msg)
@@ -947,7 +947,7 @@ class GifStudioPro:
         if self.active_thread and self.active_thread.stopped():
             return
 
-        # Создание GIF с улучшенными параметрами
+        # GIF creation with improved parameters
         try:
             start_time = float(self.start_var.get())
             end_time = float(self.end_var.get())
@@ -959,16 +959,16 @@ class GifStudioPro:
             output_path = self.temp_dir.resolve() / TEMP_GIF_FILENAME
             video_path = self.video_path.resolve()
 
-            # Настройки dithering (упрощенные)
+            # Dithering settings (simplified)
             dither_settings = {
                 'fast': 'dither=none',
                 'medium': 'dither=bayer:bayer_scale=2',
-                'high': 'dither=floyd_steinberg'  # Изменено на более стабильный алгоритм
+                'high': 'dither=floyd_steinberg'  # Changed to more stable algorithm
             }
 
             dither = dither_settings.get(quality, dither_settings['medium'])
 
-            # Упрощенная и более стабильная команда создания GIF
+            # Simplified and more stable GIF creation command
             gif_cmd = [
                 str(self.ffmpeg_path.resolve()),
                 '-y',
@@ -978,7 +978,7 @@ class GifStudioPro:
                 '-i', str(palette_path),
                 '-filter_complex', f'[0:v]scale={width}:-1:flags=lanczos,fps={fps}[v];[v][1:v]paletteuse={dither}',
                 '-loglevel', 'warning',
-                '-f', 'gif',  # Явно указываем формат выхода
+                '-f', 'gif',  # Explicitly specify output format
                 str(output_path)
             ]
 
@@ -995,19 +995,19 @@ class GifStudioPro:
             gif_manager.run()
 
         except Exception as e:
-            self.root.after(0, self.on_gif_error, f"Ошибка создания GIF: {str(e)}")
+            self.root.after(0, self.on_gif_error, f"GIF creation error: {str(e)}")
 
     def on_gif_progress(self, progress: float, message: str):
-        """Обработчик прогресса создания GIF."""
+        """GIF creation progress handler."""
         if progress >= 0:
-            self.root.after(0, self.update_progress, 30 + progress * 0.7, f"Создание GIF: {progress:.1f}%")
+            self.root.after(0, self.update_progress, 30 + progress * 0.7, f"Creating GIF: {progress:.1f}%")
         else:
             self.root.after(0, self.update_progress, -1, f"GIF: {message[:60]}...")
 
     def on_gif_complete(self, return_code: int, error_message: str):
-        """Обработчик завершения создания GIF."""
+        """GIF creation completion handler."""
         if return_code != 0:
-            self.root.after(0, self.on_gif_error, error_message or "Ошибка создания GIF")
+            self.root.after(0, self.on_gif_error, error_message or "GIF creation error")
             return
 
         gif_path = self.temp_dir / TEMP_GIF_FILENAME
@@ -1015,17 +1015,17 @@ class GifStudioPro:
             self.gif_path = gif_path
             self.root.after(0, self.on_gif_created)
         else:
-            self.root.after(0, self.on_gif_error, "GIF файл не найден")
+            self.root.after(0, self.on_gif_error, "GIF file not found")
 
     def on_gif_created(self):
-        """Обработчик успешного создания GIF."""
-        self.update_progress(100, "GIF создан успешно!")
+        """Successful GIF creation handler."""
+        self.update_progress(100, "GIF created successfully!")
 
-        # Загружаем GIF для предварительного просмотра
+        # Load GIF for preview
         self.load_gif_preview()
 
         file_size = self.gif_path.stat().st_size / (1024 * 1024)  # MB
-        info_text = f"GIF создан успешно!\nРазмер файла: {file_size:.2f} MB"
+        info_text = f"GIF created successfully!\nFile size: {file_size:.2f} MB"
         self.update_info_display(info_text)
 
         self.is_processing = False
@@ -1034,9 +1034,9 @@ class GifStudioPro:
         self.update_ui_state()
 
     def on_gif_error(self, error_message: str):
-        """Обработчик ошибки создания GIF."""
-        self.update_progress(0, "Ошибка создания GIF")
-        self.update_info_display(f"Ошибка: {error_message}")
+        """GIF creation error handler."""
+        self.update_progress(0, "GIF creation error")
+        self.update_info_display(f"Error: {error_message}")
 
         self.is_processing = False
         self.active_ffmpeg_process = None
@@ -1045,7 +1045,7 @@ class GifStudioPro:
 
     # --- GIF Preview ---
     def load_gif_preview(self):
-        """Загружает GIF для предварительного просмотра."""
+        """Loads GIF for preview."""
         if not self.gif_path or not self.gif_path.exists():
             return
 
@@ -1054,26 +1054,26 @@ class GifStudioPro:
                 self.animation_frames = []
                 self.animation_frame_delays = []
 
-                # Получаем размеры предварительного просмотра
+                # Get preview dimensions
                 preview_width = self.preview_label.winfo_width()
                 preview_height = self.preview_label.winfo_height()
 
                 if preview_width <= 1 or preview_height <= 1:
-                    # Если размеры еще не установлены, попробуем позже
+                    # If dimensions not set yet, try later
                     self.root.after(100, self.load_gif_preview)
                     return
 
                 for frame in ImageSequence.Iterator(gif):
-                    # Масштабируем кадр для предварительного просмотра
+                    # Scale frame for preview
                     frame_copy = frame.copy()
                     frame_copy.thumbnail((preview_width - 20, preview_height - 20), Image.Resampling.LANCZOS)
 
-                    # Конвертируем в PhotoImage
+                    # Convert to PhotoImage
                     photo = ImageTk.PhotoImage(frame_copy)
                     self.animation_frames.append(photo)
 
-                    # Получаем задержку кадра
-                    delay = frame.info.get('duration', 50)  # По умолчанию 50ms
+                    # Get frame delay
+                    delay = frame.info.get('duration', 50)  # Default 50ms
                     self.animation_frame_delays.append(delay)
 
             if self.animation_frames:
@@ -1081,42 +1081,42 @@ class GifStudioPro:
                 self.start_preview_animation()
 
         except Exception as e:
-            print(f"Ошибка загрузки GIF для предварительного просмотра: {e}")
+            print(f"GIF preview loading error: {e}")
 
     def start_preview_animation(self):
-        """Запускает анимацию предварительного просмотра."""
+        """Starts preview animation."""
         if self.animation_frames:
             self.animate_preview()
 
     def animate_preview(self):
-        """Анимирует предварительный просмотр GIF."""
+        """Animates GIF preview."""
         if not self.animation_frames:
             return
 
-        # Отображаем текущий кадр
+        # Display current frame
         current_frame = self.animation_frames[self.current_frame_index]
         self.preview_label.config(image=current_frame, text="")
 
-        # Планируем следующий кадр
+        # Schedule next frame
         delay = self.animation_frame_delays[self.current_frame_index]
         self.current_frame_index = (self.current_frame_index + 1) % len(self.animation_frames)
 
         self.preview_animation_id = self.root.after(delay, self.animate_preview)
 
     def stop_preview_animation(self):
-        """Останавливает анимацию предварительного просмотра."""
+        """Stops preview animation."""
         if self.preview_animation_id:
             self.root.after_cancel(self.preview_animation_id)
             self.preview_animation_id = None
 
     # --- File Operations ---
     def save_gif(self):
-        """Сохраняет созданный GIF."""
+        """Saves created GIF."""
         if not self.gif_path or not self.gif_path.exists():
             return
 
         file_path = filedialog.asksaveasfilename(
-            title="Сохранить GIF",
+            title="Save GIF",
             defaultextension=".gif",
             filetypes=[("GIF files", "*.gif"), ("All files", "*.*")]
         )
@@ -1124,34 +1124,34 @@ class GifStudioPro:
         if file_path:
             try:
                 shutil.copy2(self.gif_path, file_path)
-                messagebox.showinfo("Успех", f"GIF сохранен: {file_path}")
+                messagebox.showinfo("Success", f"GIF saved: {file_path}")
             except Exception as e:
-                messagebox.showerror("Ошибка", f"Не удалось сохранить файл:\n{e}")
+                messagebox.showerror("Error", f"Failed to save file:\n{e}")
 
     # --- Operation Control ---
     def cancel_operation(self):
-        """Отменяет текущую операцию."""
+        """Cancels current operation."""
         if self.active_thread:
             self.active_thread.stop()
 
         if self.active_ffmpeg_process:
             self.active_ffmpeg_process.terminate()
 
-        self.update_progress(0, "Операция отменена")
+        self.update_progress(0, "Operation canceled")
         self.is_processing = False
         self.update_ui_state()
 
     # --- Cleanup ---
     def cleanup_temp_files(self):
-        """Очищает временные файлы."""
+        """Cleans up temporary files."""
         try:
             if self.temp_dir.exists():
                 shutil.rmtree(self.temp_dir)
         except Exception as e:
-            print(f"Ошибка очистки временных файлов: {e}")
+            print(f"Temporary files cleanup error: {e}")
 
     def on_closing(self):
-        """Обработчик закрытия приложения."""
+        """Application closing handler."""
         self.cancel_operation()
         self.stop_preview_animation()
         self.cleanup_temp_files()
@@ -1159,7 +1159,7 @@ class GifStudioPro:
 
 # --- Application Entry Point ---
 def main():
-    """Точка входа в приложение."""
+    """Application entry point."""
     root = tk.Tk()
     app = GifStudioPro(root)
     root.mainloop()
